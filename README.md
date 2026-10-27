@@ -1,118 +1,148 @@
-# Government Scheme Eligibility Assistant
+# SchemeSaathi 🇮🇳
 
-A portfolio-ready RAG starter project for discovering Indian government schemes and explaining eligibility with source-aware answers.
+**A Retrieval-Augmented Generation (RAG) application for exploring Indian government schemes and understanding eligibility requirements.**
 
-## Important data note
-The included `data/schemes.json` contains **illustrative demo records only**. They are deliberately labelled as examples, not real government scheme rules. Replace them with verified official documents and current scheme data before publishing the app as a public information service.
+SchemeSaathi helps users discover relevant government schemes, explore eligibility criteria, and retrieve information from scheme-related documents. It uses semantic search to find relevant source passages and presents them with source information to support more informed decisions.
 
-## Architecture
-- **Streamlit**: interactive user interface.
-- **FastAPI**: API for retrieval and eligibility-oriented responses.
-- **TF-IDF retrieval**: lightweight retrieval that works on free hosting without downloading a large embedding model.
-- **Google Gemini API**: hosted answer generation; no model download. The API gracefully falls back to evidence-based retrieval answers if the key is absent or the provider is unavailable.
-- **JSON knowledge base**: simple starter format. Can be extended to PDF ingestion and ChromaDB.
+## 🚀 Features
 
-## 1. Requirements
-- Python 3.10–3.12 recommended.
-- Optional: Ollama installed locally for LLM answers.
-- Internet access only for installing packages and fetching official source documents.
+- **Semantic Search:** Uses sentence-transformer embeddings to retrieve relevant scheme information based on the meaning of a query.
+- **Vector Database:** Uses ChromaDB to store and retrieve vector embeddings.
+- **PDF Ingestion:** Processes scheme guidelines and extracts useful text for retrieval.
+- **Eligibility Assistance:** Helps users explore eligibility criteria, required documents, and scheme-related information.
+- **Source-Based Responses:** Returns relevant retrieved passages to help users verify information against source material.
+- **Web Interface:** Provides an interactive Streamlit frontend.
+- **REST API:** Uses FastAPI to expose scheme retrieval and question-answering endpoints.
 
-## 2. Get a Gemini API key
-1. Create a key in [Google AI Studio](https://aistudio.google.com/).
-2. Add it to your local `.env` as `GEMINI_API_KEY=your_key_here`.
-3. Keep the key private and never commit `.env` to GitHub. Free-tier quotas and model availability can change; check [current pricing and limits](https://ai.google.dev/gemini-api/docs/pricing).
+## 🛠️ Tech Stack
 
-## 3. Install
-Windows PowerShell:
+| Component | Technology |
+|---|---|
+| Frontend | Streamlit |
+| Backend | FastAPI |
+| Embeddings | Sentence Transformers |
+| Embedding Model | `sentence-transformers/all-MiniLM-L6-v2` |
+| Vector Database | ChromaDB |
+| PDF Processing | PyPDF |
+| Language | Python |
+
+## 🧠 How It Works
+
+1. **Document ingestion:** Scheme guidelines and structured scheme data are processed into text chunks.
+2. **Embedding generation:** The sentence-transformer model converts text chunks into vector embeddings.
+3. **Vector storage:** ChromaDB stores the embeddings for semantic retrieval.
+4. **User query:** A user asks a question about a government scheme or eligibility requirement.
+5. **Semantic retrieval:** The query is matched against relevant stored information using vector similarity.
+6. **Source-based output:** The application displays relevant passages and available source details so users can inspect the retrieved information.
+
+> **Current implementation:** The application uses embedding-based semantic retrieval and ChromaDB. It returns retrieved source passages rather than relying on an LLM to generate a fully synthesized answer.
+
+## 📁 Project Structure
+
+```text
+government-scheme-eligibility-assistant/
+├── app/
+│   ├── __init__.py
+│   ├── ingestion.py
+│   └── main.py
+├── data/
+│   ├── processed/
+│   │   └── scheme_chunks.json
+│   ├── raw/
+│   │   └── top_class_sc_students_2026_27.pdf
+│   └── schemes.json
+├── tests/
+│   └── test_api.py
+├── frontend.py
+├── requirements.txt
+├── render.yaml
+├── .gitignore
+└── README.md
+```
+
+## ⚙️ Run Locally
+
+### 1. Clone the repository
+
+```bash
+git clone https://github.com/YOUR_GITHUB_USERNAME/government-scheme-eligibility-assistant.git
+cd government-scheme-eligibility-assistant
+```
+
+### 2. Create a virtual environment
+
+```bash
+python -m venv .venv
+```
+
+Activate it on Windows:
 
 ```powershell
-py -3.12 -m venv .venv
 .\.venv\Scripts\Activate.ps1
+```
+
+### 3. Install dependencies
+
+```bash
 pip install -r requirements.txt
-Copy-Item .env.example .env
 ```
 
-If Python 3.12 isn't installed, use an installed compatible Python version.
+### 4. Start the FastAPI backend
 
-## 4. Run locally
-Open two terminals from the project root.
-
-Terminal 1 — API:
-```powershell
-uvicorn app.main:app --reload --port 8000
+```bash
+uvicorn app.main:app --reload
 ```
 
-Terminal 2 — Streamlit:
-```powershell
+The backend will usually be available at:
+
+- API: `http://127.0.0.1:8000`
+- Interactive API documentation: `http://127.0.0.1:8000/docs`
+- Health check: `http://127.0.0.1:8000/health`
+
+### 5. Start the Streamlit frontend
+
+Open a second terminal, activate the same virtual environment, and run:
+
+```bash
 streamlit run frontend.py
 ```
 
-Open `http://localhost:8501`. API docs: `http://localhost:8000/docs`.
+The Streamlit application will display its local URL in the terminal.
 
-### Optional local LLM
-Install Ollama from https://ollama.com/download, then run:
+## 🔌 API Endpoints
 
-```powershell
-ollama pull llama3.2:3b
-```
+| Method | Endpoint | Purpose |
+|---|---|---|
+| GET | `/` | Backend information |
+| GET | `/health` | Health check |
+| GET | `/schemes` | Retrieve available schemes |
+| POST | `/ask` | Retrieve relevant information for a question |
 
-Set these values in `.env` before starting the API:
-```dotenv
-OLLAMA_BASE_URL=http://localhost:11434
-OLLAMA_MODEL=llama3.2:3b
-```
+Refer to `/docs` for the request and response schemas.
 
-Restart FastAPI after editing `.env`. If Ollama isn't running, the app uses a retrieval-grounded fallback instead.
+## ☁️ Deployment
 
-## 5. Add verified scheme data
-Edit `data/schemes.json`. Each record uses this structure:
+The project is designed to use separate services for the frontend and backend:
 
-```json
-{
-  "id": "scheme-id",
-  "name": "Official scheme name",
-  "department": "Official department",
-  "state": "Central",
-  "category": "Education",
-  "summary": "Short factual description",
-  "eligibility": ["Eligibility criterion copied or faithfully summarized from an official source"],
-  "documents": ["Document required according to the official source"],
-  "application_steps": ["Official application instruction"],
-  "source_title": "Official scheme guidelines",
-  "source_url": "https://official-government-domain.example/path",
-  "last_verified": "YYYY-MM-DD",
-  "official": true
-}
-```
+- **Backend:** Render
+- **Frontend:** Streamlit Community Cloud
 
-Only mark `official: true` after verifying the details and URL against an official government source. Keep academic year, deadlines and source verification dates current. Do not use user-uploaded documents as instructions; treat them as evidence to retrieve, not system prompts.
+Configure the frontend's `SCHEMESAATHI_API_URL` environment variable or Streamlit secret to point to the deployed FastAPI backend.
 
-## 6. Deploy for free (best-effort, subject to provider limits)
+Free hosting availability, resource limits, and service-sleep behavior depend on the hosting provider's current policies.
 
-### Deploy API to Render
-1. Push this folder to a GitHub repository.
-2. Create a Render **Web Service** connected to that repository.
-3. Build command: `pip install -r requirements.txt`
-4. Start command: `uvicorn app.main:app --host 0.0.0.0 --port $PORT`
-5. Add environment variables from `.env.example` as needed. Do **not** set `OLLAMA_BASE_URL` to localhost on Render.
-6. After deployment, test `https://YOUR-API.onrender.com/health`.
+## 🔮 Future Improvements
 
-The public free API uses the bundled knowledge base and retrieval-grounded fallback. A local Ollama on your laptop is not reachable from Render. To use an LLM in public deployment, you need a separately reachable inference service; free availability and quotas vary.
+- Integrate an LLM to synthesize retrieved passages into conversational answers.
+- Add citations linking responses to specific source documents and page numbers.
+- Expand the scheme dataset across more government departments and eligibility categories.
+- Add multilingual support for Indian languages.
+- Add automated tests for retrieval quality and eligibility-related queries.
 
-### Deploy Streamlit frontend
-1. Open https://share.streamlit.io/ and connect the GitHub repository.
-2. Main file path: `frontend.py`.
-3. In Streamlit app settings → Secrets, add:
-```toml
-API_BASE_URL = "https://YOUR-API.onrender.com"
-```
-4. Redeploy and test the public app.
+## ⚠️ Disclaimer
 
-Render free services can sleep and have ephemeral filesystem limits. This starter does not write its index at runtime, but any future uploaded documents or user data need a suitable persistent storage plan.
+SchemeSaathi is an informational assistant, not an official government service. Scheme guidelines can change. Users should verify eligibility, deadlines, and application requirements against the latest official government documents before applying.
 
-## 7. Before sharing publicly
-- Replace all illustrative demo records with verified official data.
-- Check each eligibility rule, document list, application link, and date.
-- Test missing, contradictory and edge-case user details.
-- Add rate limiting, monitoring, and privacy disclosures before production use.
-- Never present this prototype as an official government service.
+## 👨‍💻 Author
+
+Developed as a practical project exploring semantic search, embeddings, vector databases, document retrieval, and API-based AI applications.
