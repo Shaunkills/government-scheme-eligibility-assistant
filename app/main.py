@@ -1,4 +1,3 @@
-
 import json
 import os
 from pathlib import Path
@@ -8,7 +7,8 @@ import chromadb
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
-from sentence_transformers import SentenceTransformer
+# SentenceTransformer is imported lazily inside get_embedding_model()
+# to reduce startup work for the web service.
 
 
 # ==================================================
@@ -252,12 +252,26 @@ SCHEMES = load_schemes()
 # LOAD HUGGING FACE EMBEDDING MODEL
 # ==================================================
 
-print(f"Loading embedding model: {EMBEDDING_MODEL_NAME}")
+# Load the embedding model only when retrieval is first needed.
+# This allows lightweight endpoints such as / and /health to start
+# before loading PyTorch and the transformer model.
+embedding_model = None
 
-embedding_model = SentenceTransformer(
-    EMBEDDING_MODEL_NAME,
-    device="cpu",
-)
+
+def get_embedding_model():
+    """Load the sentence-transformer model on demand."""
+    global embedding_model
+
+    if embedding_model is None:
+        print(f"Loading embedding model: {EMBEDDING_MODEL_NAME}")
+        from sentence_transformers import SentenceTransformer
+
+        embedding_model = SentenceTransformer(
+            EMBEDDING_MODEL_NAME,
+            device="cpu",
+        )
+
+    return embedding_model
 
 
 # ==================================================
@@ -284,76 +298,72 @@ collection = chroma_client.get_or_create_collection(
 # ==================================================
 
 def index_schemes() -> None:
-    """Create embeddings and store records in ChromaDB."""
+    """Create embeddings in small batches and store them in ChromaDB."""
 
-    ids = []
-    documents = []
-    metadatas = []
+    if collection.count() > 0:
+        print(
+            f"ChromaDB already contains {collection.count()} records; "
+            "skipping re-indexing."
+        )
+        return
+
+    valid_records = []
 
     for index, scheme in enumerate(SCHEMES):
-
         document = record_text(scheme)
 
         if not document:
             continue
 
-        ids.append(f"record-{index}")
-        documents.append(document)
+        valid_records.append((
+            f"record-{index}",
+            document,
+            {
+                "record_index": index,
+                "state": as_text(scheme.get("state")) or "unknown",
+                "category": as_text(scheme.get("category")) or "unknown",
+                "scheme_name": get_scheme_name(scheme),
+            },
+        ))
 
-        metadatas.append({
-            "record_index": index,
-            "state": (
-                as_text(scheme.get("state"))
-                or "unknown"
-            ),
-            "category": (
-                as_text(scheme.get("category"))
-                or "unknown"
-            ),
-            "scheme_name": get_scheme_name(scheme),
-        })
-
-    if not ids:
+    if not valid_records:
         print(
             "No searchable records found. Check "
             "schemes.json and scheme_chunks.json."
         )
         return
 
-    embeddings = embedding_model.encode(
-        documents,
-        batch_size=32,
-        normalize_embeddings=True,
-        convert_to_numpy=True,
-        show_progress_bar=False,
-    ).tolist()
+    model = get_embedding_model()
+    batch_size = 8
 
-    collection.upsert(
-        ids=ids,
-        documents=documents,
-        metadatas=metadatas,
-        embeddings=embeddings,
-    )
+    for start in range(0, len(valid_records), batch_size):
+        batch = valid_records[start:start + batch_size]
 
-    # Remove records that no longer exist in the source data.
-    existing_ids = collection.get(include=[])["ids"]
-    valid_ids = set(ids)
+        batch_ids = [item[0] for item in batch]
+        batch_documents = [item[1] for item in batch]
+        batch_metadatas = [item[2] for item in batch]
 
-    stale_ids = [
-        record_id
-        for record_id in existing_ids
-        if record_id not in valid_ids
-    ]
+        batch_embeddings = model.encode(
+            batch_documents,
+            batch_size=4,
+            normalize_embeddings=True,
+            convert_to_numpy=True,
+            show_progress_bar=False,
+        ).tolist()
 
-    if stale_ids:
-        collection.delete(ids=stale_ids)
+        collection.upsert(
+            ids=batch_ids,
+            documents=batch_documents,
+            metadatas=batch_metadatas,
+            embeddings=batch_embeddings,
+        )
 
-    print(
-        f"Indexed {len(ids)} records in ChromaDB."
-    )
+        print(
+            f"Indexed {min(start + batch_size, len(valid_records))}"
+            f"/{len(valid_records)} records."
+        )
 
-
-index_schemes()
+    print(f"Indexed {len(valid_records)} records in ChromaDB.")
 
 
 # ==================================================
@@ -368,11 +378,19 @@ def retrieve(
 ) -> list[tuple[dict[str, Any], float, str]]:
     """Retrieve relevant records using vector similarity."""
 
-    if not SCHEMES or collection.count() == 0:
+    if not SCHEMES:
         return []
 
-    query_embedding = embedding_model.encode(
+    if collection.count() == 0:
+        index_schemes()
+
+    if collection.count() == 0:
+        return []
+
+    model = get_embedding_model()
+    query_embedding = model.encode(
         [question],
+        batch_size=1,
         normalize_embeddings=True,
         convert_to_numpy=True,
         show_progress_bar=False,
@@ -380,7 +398,7 @@ def retrieve(
 
     result = collection.query(
         query_embeddings=query_embedding,
-        n_results=collection.count(),
+        n_results=min(top_k, collection.count()),
         include=[
             "documents",
             "metadatas",
@@ -598,6 +616,7 @@ def health() -> dict[str, Any]:
         "scheme_records": len(SCHEMES),
         "chroma_records": collection.count(),
         "embedding_model": EMBEDDING_MODEL_NAME,
+        "embedding_model_loaded": embedding_model is not None,
         "answer_mode": "extractive_rag",
         "llm_required": False,
     }
