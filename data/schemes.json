@@ -1,0 +1,47 @@
+[
+  {
+    "id": "demo-education-support",
+    "name": "Illustrative Education Support Scheme (DEMO ONLY)",
+    "department": "Illustrative example — not a government department",
+    "state": "Central",
+    "category": "Education",
+    "summary": "This placeholder shows how a scheme record should be structured. It is not a real scheme and must not be used to determine actual eligibility.",
+    "eligibility": [
+      "DEMO RULE: Applicant is enrolled in an educational institution.",
+      "DEMO RULE: Applicant should check the official scheme notification for income, category, course and academic-year conditions."
+    ],
+    "documents": [
+      "DEMO DOCUMENT: Proof of identity (verify the actual requirement from official guidelines).",
+      "DEMO DOCUMENT: Proof of enrolment (verify the actual requirement from official guidelines)."
+    ],
+    "application_steps": [
+      "DEMO STEP: Read the latest official notification.",
+      "DEMO STEP: Apply only through the official application portal listed in verified scheme data."
+    ],
+    "source_title": "No official source — illustrative demo record",
+    "source_url": "",
+    "last_verified": "Not verified",
+    "official": false
+  },
+  {
+    "id": "demo-livelihood-support",
+    "name": "Illustrative Livelihood Support Scheme (DEMO ONLY)",
+    "department": "Illustrative example — not a government department",
+    "state": "Maharashtra",
+    "category": "Livelihood",
+    "summary": "This placeholder demonstrates state-specific scheme metadata. It is not an actual Maharashtra government scheme.",
+    "eligibility": [
+      "DEMO RULE: Residency and income conditions may apply; do not infer eligibility from this placeholder."
+    ],
+    "documents": [
+      "DEMO DOCUMENT: Residency proof (confirm exact documents in official guidelines)."
+    ],
+    "application_steps": [
+      "DEMO STEP: Replace this record with a verified official scheme and current application instructions."
+    ],
+    "source_title": "No official source — illustrative demo record",
+    "source_url": "",
+    "last_verified": "Not verified",
+    "official": false
+  }
+]
