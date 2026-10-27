@@ -15,10 +15,23 @@ st.set_page_config(
     initial_sidebar_state="collapsed",
 )
 
-API_BASE_URL = os.getenv(
-    "SCHEMESAATHI_API_URL",
-    "http://127.0.0.1:8000",
-).rstrip("/")
+def get_api_base_url():
+    """Read the backend URL from Streamlit Secrets or environment."""
+    try:
+        url = st.secrets.get("SCHEMESAATHI_API_URL", "")
+    except Exception:
+        url = ""
+
+    if not url:
+        url = os.getenv("SCHEMESAATHI_API_URL", "")
+
+    if not url:
+        url = "http://127.0.0.1:8000"
+
+    return url.rstrip("/")
+
+
+API_BASE_URL = get_api_base_url()
 
 # ============================================================
 # STYLING
